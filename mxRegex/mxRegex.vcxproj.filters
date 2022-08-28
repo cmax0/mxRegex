@@ -24,4 +24,9 @@
       <Filter>File di origine</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="README.md">
+      <Filter>File di origine</Filter>
+    </None>
+  </ItemGroup>
 </Project>

@@ -16,6 +16,16 @@ You should have received a copy of the GNU General Public License
 and GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+v1.0 features:
+- ISO 8859 8-bit charset (i.e. NON unicode)
+- occurrences ? * + {a[,[b]]} greedy only
+- group (...), non-capturing group (?:...)
+- altenative segments a|b
+- charset [x] with negation ^x, range a-b
+- anchors ^ $ \b \B
+- char classes \s \S \d \D \w \W \xHH . (dot)
+- multiline, singleline (partial)
+
 */
 
 #define MXREGEX_DEBUG 1
@@ -43,8 +53,8 @@ MXREGEX_M m;
 
 #if MXREGEX_DEBUG
 
-char buf[2048];
-UInt16 cnt;
+char buf[1024];
+UInt16 step;
 
 #endif
 
@@ -94,6 +104,49 @@ char Upper(const char c)
 UInt8 IsDigit(char c)
 {
     return c >= '0' && c <= '9';
+}
+
+
+
+// convert 2 hex digit to number
+// parm
+//  str     ptr to 2 digit hex 
+//  retNum  ptr to returned value 0..255
+// ret
+//  0: fail, not a hex number
+//  1: ok, retNum updated
+
+UInt8 GetHex(const char* str, UInt16* retNum)
+{
+    UInt16 t;
+
+    t = 0;
+
+    if (*str >= '0' && *str <= '9')
+        t = *str - '0';
+    else
+        if (*str >= 'A' && *str <= 'F')
+            t = *str - ('A' + 10);
+        else if (*str >= 'a' && *str <= 'f')
+            t = *str - ('a' + 10);
+        else
+            return 0;
+
+    t <<= 4;
+    str++;
+
+    if (*str >= '0' && *str <= '9')
+        t += *str - '0';
+    else
+        if (*str >= 'A' && *str <= 'F')
+            t += *str - ('A' + 10);
+        else if (*str >= 'a' && *str <= 'f')
+            t += *str - ('a' + 10);
+        else
+            return 0;
+
+    *retNum = t;
+    return 1;
 }
 
 
@@ -646,7 +699,7 @@ REGEX_STS GetRegexAtom(const char* charP)
         return REGEXSTS_OK;
 
 
-    case '\\':                                              // \ escape
+    case '\\':                                           // \ escape
 
         m.atom.c = *charP++;                             // save escaped char
 
@@ -654,6 +707,13 @@ REGEX_STS GetRegexAtom(const char* charP)
         {
             m.atom.endP = charP;
             return REGEXSTS_SYNTAX;
+        }
+
+        if(m.atom.c == 'x' && GetHex(charP, &t))         // if \xHH char hex code
+        {
+            m.atom.c = (char)t;
+            charP += 2;
+            break;
         }
 
         if (IsMetaclass(m.atom.c))                       // if simple metaclass (only one charset)
@@ -1307,7 +1367,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
 #if MXREGEX_DEBUG
         snprintf(buf, sizeof(buf), "%4d %2d %-50s %-70s %-50s %-70s\r\n",
-            ++cnt,
+            ++step,
             recurseNum,
             segmentP->strParseP,
             segmentP->regexParseP,
@@ -1315,9 +1375,9 @@ UInt8 MxRegex_(UInt16 recurseNum)
             segmentP->regexP
         );
         OutputDebugStringA((LPCSTR)buf);
-        if (cnt == 21)
+        if (step == 1)
         {
-            Nop();
+            Nop();                                                  // breakpoint at step n
         }
 #endif
 
@@ -1400,7 +1460,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
         case ATOMTYPE_METACLASS:                                    // charset
 
-            t = Atom_charInCharset(&m.atom.charset, *segmentP->strParseP) ? 1 : 0;  // t=1 if char in charset. NOTE if str at EOS \9, fail
+            t = Atom_charInCharset(&m.atom.charset, *segmentP->strParseP) ? 1 : 0;  // t=1 if char in charset. NOTE if str at EOS \0, fail
             goto BR_CHECK_MATCH_ATOM;
 
 
@@ -2054,14 +2114,14 @@ int main()
     UInt8 b;
     UInt16 t;
 
-    cnt = 0;
+    step = 0;
     snprintf(buf, sizeof(buf), "\r\n\n\n");
     OutputDebugStringA((LPCSTR)buf);
 
     MxRegex_init();
 
     // TEST 
-    b = MxRegex("^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$","address.ext@gmail.com", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,40)
+    b = MxRegex("^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6})$","address.ext@gmail.com", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,40)
     //b = MxRegex("^[\\w-.]+(\\.\\w{2,3})$", "apn.vodafone.it", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,15)(12,15)
     //b = MxRegex("(a.*z|b.*y)*.*", "azbazbyc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  // (0,8) [ (0,5) ]
     //b = MxRegex( "a(b)|c(d)|a(e)f", "aef",REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);     // (0,3)(?,?)(?,?)(1,2)
@@ -2083,6 +2143,8 @@ int main()
     //b = MxRegex("^(http:\\/\\/www\\.|https:\\/\\/www\\.|http:\\/\\/|https:\\/\\/)?[a-z0-9]+([\\-\\.]{1}[a-z0-9]+)*\\.[a-z]{2,5}(:[0-9]{1,5})?(\\/.*)?$", "https://www.google.com:80", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,25)(0,12)(22,25)
     //b = MxRegex("(wee|week)(knights|night)(s*)", "weeknights", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0-10)(0,3)(3,10)(10,10)
     //b = MxRegex("(weeka|wee)(night|knights)", "weeknights", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  // (0-10)(0,3)(3,10)
+    //b = MxRegex("^\\s*(GET|POST)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)", " \tGET /index.html HTTP/1.0\r\n\r\n", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  
+    //b = MxRegex("[.]","a", REGEXMODE_SINGLELINE);
 
     snprintf(buf, sizeof(buf), "\r\nResponse: %s\r\nstatus code: %d \r\ncapsNum: %d\r\n\r", b ? "OK" : "FAIL", m.retSts, m.capsNum);
     OutputDebugStringA((LPCSTR)buf);

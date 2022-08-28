@@ -38,10 +38,10 @@ extern "C" {
 
 // DEFS
 
-#define MAX_RECURSE 6                           // max regex nesting i.e. brackets within brackets. 
-#define MAX_ALTSEG 32                           // max number of alternative segments (a|b)
-#define MAX_CAPS 16                             // max number of capturing brackets, including base caps[0] on regex match. 
-#define MAX_BACKTRACK 48                        // max backtracks
+#define MAX_RECURSE 5                           // max regex nesting i.e. brackets within brackets.
+#define MAX_ALTSEG 24                           // max number of alternative segments (a|b)
+#define MAX_CAPS 12                             // max number of capturing brackets, including base caps[0] on regex match.
+#define MAX_BACKTRACK 32                        // max backtracks
 
 #define MAX_ITERATE 1024                        // max iterations on same string (watchdog)
 
@@ -88,12 +88,12 @@ typedef enum
 
 
 
-// tipo atomo
+// regex atom type
 
 typedef enum
 {
-    ATOMTYPE_CHAR = 0,                                      // semplice char (anche con escape) con eventuale quantificatore
-    ATOMTYPE_METACLASS,                                     // metaclasse charset [abc]
+    ATOMTYPE_CHAR = 0,                                      // simple char (also for escaped)
+    ATOMTYPE_METACLASS,                                     // metaclass charset like "[abc]"
     ATOMTYPE_BRACKETOPEN,                                   // metachar ( 
     ATOMTYPE_BRACKETCLOSE,                                  // metachar )
     ATOMTYPE_PIPE,                                          // metachar |
@@ -107,7 +107,8 @@ typedef enum
 
 
 // charset ISO 8859-1   
-// 256 bit, bit[ASC(char)] -> char nel set
+// 256 bit, bit[ASC(char)] == 1 -> char in set
+// note: no big difference if using UInt16 or UInt8 on 16 bit ARM
 
 typedef struct
 {
@@ -120,23 +121,24 @@ typedef struct
 
 
 
-// atomo regex con attributi: singolo char, meta
+// regex atom with attributes
 
 typedef struct
 {
-    ATOM_TYPE type;                             // tipo atomo
+    ATOM_TYPE type;                             // atom type
 
-    char    c;                                  // carattere (se singolo)
+    char    c;                                  // char (if simple char)
 
-    UInt16  minOcc;                             // numero min occorrenze
-    UInt16  maxOcc;                             // num max occorrenze
-    const char* endP;                           // ptr char successivo ad atom
+    UInt16  minOcc;                             // min occurrences
+    UInt16  maxOcc;                             // max occurrences
+    const char* endP;                           // ptr to char after atom (i.e. after quantifier, if present)
 
     CHARSET charset;                            // charset
     UInt8 charsetIsNegate : 1;                  // use negated charset [^
-    UInt8 charsetAllowNegate : 1;               // accept negation [^ 
-    UInt8 gotMinus : 1;                         // char range, got valid '-' 
-    char charsetLastChar;                       // char range, from-char in notation [a-b]
+
+    UInt8 charsetAllowNegate : 1;               // charset parser: accept negation [^ 
+    UInt8 gotMinus : 1;                         //   char range, got valid '-' 
+    char charsetLastChar;                       //   char range, from-char in notation [a-b]
 
 } REGEXATOM;
 
@@ -192,6 +194,7 @@ typedef struct
 
 
 // backtrack 
+
 #define BACKTRACK_MAXOCC 0xffff                 // no limit to nr of occurrences
 
 typedef struct
@@ -205,7 +208,7 @@ typedef struct
 
 
 
-// all library static data
+// all static data
 
 typedef struct
 {
@@ -231,7 +234,7 @@ typedef struct
 
     UInt16 iterateCnt;                                  // watchdog
 
-    // for code optimization, could be hardcoded to save RAM. See MxRegex_init()
+    // for code optimization, could be hardcoded to save RAM (128 bytes). See MxRegex_init()
 
     CHARSET charset_dot;                                // . non singleline, including \r\n
     CHARSET charset_word;                               // \w
@@ -245,10 +248,10 @@ typedef struct
 
 // PUBLIC METHODS
 
-extern void MxRegex_init();
-extern UInt8 MxRegex(const char* strP, const char* regexP, const UInt16 mode);
-extern UInt8 MxRegex_getCaps(const UInt16 capsNum, char** retStr, UInt16* retLen);
-extern const MXREGEX_M* MxRegex_getData();
+extern void MxRegex_init();                                                         // init charsets, invoked once at startup
+extern UInt8 MxRegex(const char* strP, const char* regexP, const UInt16 mode);      // regex
+extern UInt8 MxRegex_getCaps(const UInt16 capsNum, char** retStr, UInt16* retLen);  // get captures after regex match
+extern const MXREGEX_M* MxRegex_getData();                                          // get all regex data 
 
 
 
