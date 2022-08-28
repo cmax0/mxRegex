@@ -54,7 +54,7 @@ UInt16 cnt;
 
 // predefined charsets 
 
-const char* const C_WORD_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzàéèìòù0123456789_";
+const char* const C_WORD_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
 const char* const C_DIGIT_CHARSET = "0123456789";
 const char* const C_WHITESPACE_CHARSET = " \t\r\n\v\f";
 
@@ -1895,7 +1895,7 @@ void MxRegex_init()
     // used for code optimization in case of complex sets
     // could be hardcoded in order to save RAM (160 bytes)
 
-    Atom_charsetResetAll();                                         // . (e
+    Atom_charsetResetAll();                                         // . (included \r\n)
     Atom_charsetInvert();
     Atom_charsetExport(&m.charset_dot);
 
@@ -2023,9 +2023,10 @@ UInt8 MxRegex_getCaps(const UInt16 capsNum, char** retStr, UInt16* retLen)
 
 
 
-// get regex vars 
+// get regex public vars 
+// usually for debug only
 // ret:
-//  mP:     ptr to M_PRIV m (static) 
+//  mP:     ptr to MXREGEX_M m  
 // useful elements
 //  mP->m.retSts        if regex fail, get reason (REGEXSTS_OK: simply no match)
 //  mp->m.retRegexOfs   if not REGEXSTS_OK, error position in regex
@@ -2059,7 +2060,8 @@ int main()
 
     MxRegex_init();
 
-    //b = MxRegex("^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$","massimo.celeghin@comune.monfalcone.go.it", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,40)
+    // TEST 
+    b = MxRegex("^[a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}$","address.ext@gmail.com", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,40)
     //b = MxRegex("^[\\w-.]+(\\.\\w{2,3})$", "apn.vodafone.it", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,15)(12,15)
     //b = MxRegex("(a.*z|b.*y)*.*", "azbazbyc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  // (0,8) [ (0,5) ]
     //b = MxRegex( "a(b)|c(d)|a(e)f", "aef",REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);     // (0,3)(?,?)(?,?)(1,2)
@@ -2081,8 +2083,6 @@ int main()
     //b = MxRegex("^(http:\\/\\/www\\.|https:\\/\\/www\\.|http:\\/\\/|https:\\/\\/)?[a-z0-9]+([\\-\\.]{1}[a-z0-9]+)*\\.[a-z]{2,5}(:[0-9]{1,5})?(\\/.*)?$", "https://www.google.com:80", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,25)(0,12)(22,25)
     //b = MxRegex("(wee|week)(knights|night)(s*)", "weeknights", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0-10)(0,3)(3,10)(10,10)
     //b = MxRegex("(weeka|wee)(night|knights)", "weeknights", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  // (0-10)(0,3)(3,10)
-    b = MxRegex("(a*)b?c", "aaaaacab", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);
-
 
     snprintf(buf, sizeof(buf), "\r\nResponse: %s\r\nstatus code: %d \r\ncapsNum: %d\r\n\r", b ? "OK" : "FAIL", m.retSts, m.capsNum);
     OutputDebugStringA((LPCSTR)buf);
