@@ -16,16 +16,6 @@ You should have received a copy of the GNU General Public License
 and GNU Lesser General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
 
-v1.0 features:
-- ISO 8859 8-bit charset (i.e. NON unicode)
-- occurrences ? * + {a[,[b]]} greedy only
-- group (...), non-capturing group (?:...)
-- altenative segments a|b
-- charset [x] with negation ^x, range a-b
-- anchors ^ $ \b \B
-- char classes \s \S \d \D \w \W \xHH . (dot)
-- multiline, singleline (partial)
-
 */
 
 #define MXREGEX_DEBUG 1
@@ -428,7 +418,7 @@ void Atom_charsetExport(CHARSET* charsetDstP)
     register UInt8 t;
 
     for (t = 0; t < (sizeof(charsetDstP->map) / sizeof(charsetDstP->map)[0]); t++)
-        charsetDstP->map[t] |= m.atom.charset.map[t];
+        charsetDstP->map[t] = m.atom.charset.map[t];
 
     return;
 }

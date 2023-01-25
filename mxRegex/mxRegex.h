@@ -34,6 +34,8 @@ extern "C" {
 #endif
 
 
+#define VER "1.00"                              // version
+
 
 
 // DEFS
