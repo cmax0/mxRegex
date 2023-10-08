@@ -34,15 +34,15 @@ extern "C" {
 #endif
 
 
-#define VER "1.00"                              // version
+#define VER "1.01"                              // version
 
 
 
 // DEFS
 
-#define MAX_RECURSE 5                           // max regex nesting i.e. brackets within brackets.
-#define MAX_ALTSEG 24                           // max number of alternative segments (a|b)
-#define MAX_CAPS 12                             // max number of capturing brackets, including base caps[0] on regex match.
+#define MAX_RECURSE 4                           // max regex nesting i.e. brackets within brackets.
+#define MAX_ALTSEG 16                           // max number of alternative segments (a|b)
+#define MAX_CAPS 8                              // max number of capturing brackets, including base caps[0] on regex match.
 #define MAX_BACKTRACK 32                        // max backtracks
 
 #define MAX_ITERATE 1024                        // max iterations on same string (watchdog)
@@ -51,6 +51,7 @@ typedef unsigned long UInt32;
 typedef unsigned short UInt16;
 typedef unsigned char UInt8;
 
+#define sizeidx(x) (sizeof(x)/sizeof(x[0]))      
 
 
 

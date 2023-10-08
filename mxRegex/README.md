@@ -51,22 +51,21 @@ If regex pattern is hard coded, usually there is no need to check for error cond
 &nbsp;
 #### Features
 - ISO 8859-x 8-bit charset
-- occurrences: ? * + {a[,[b]]} 
-- char classes: . \s \S \d \D \w \W \xHH
-- charset: [a] negation [^a], range [a-b]
-- anchors: ^ $ \b \B
-- group: (...), non-capturing group (?:...)
-- altenative segments: a|b
+- occurrence: ? * + {a[,[b]]} 
+- char class: . \s \S \d \D \w \W \xHH
+- charset: [a] negation [^a] range [a-b]
+- anchor: ^ $ \b \B
+- group: (...) non-capturing (?:...)
+- altenative segment: a|b
 - mode: case sensitive/insensitive
 - mode: singleline (for . charclass)
+- mode: multiline (for ^ $ anchors)
 
 Limitation:
 - return on 1st match
 - no unicode support
-- multiline mode not implemented (for ^ and $ anchor)
 
 To be implemented:
-- multiline mode
 - non-greedy occurrences
 
 &nbsp;
@@ -79,6 +78,9 @@ You should have received a copy of the GNU General Public License and GNU Lesser
 
 &nbsp;
 #### Changelog
+
+##### 1.01
+- multiline implementation
 
 ##### 1.00
 - initial relase

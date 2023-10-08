@@ -98,6 +98,30 @@ UInt8 IsDigit(char c)
 
 
 
+// convert 1 hex char to dec
+// parm
+//  c       hex char '0'..'9' | 'A'..'F' | 'a'..'f'
+// ret
+//  hex value 0..15,  0xff fail
+
+UInt8 HexChar2num(const char c)
+{
+    if (c >= '0' && c <= '9')
+        return c - '0';
+
+    if (c >= 'A' && c <= 'F')
+        return c - ('A' + 10);
+
+    if (c >= 'a' && c <= 'f')
+        return c - ('a' + 10);
+
+    return 0xff;
+}
+
+
+
+
+
 // convert 2 hex digit to number
 // parm
 //  str     ptr to 2 digit hex 
@@ -108,34 +132,19 @@ UInt8 IsDigit(char c)
 
 UInt8 GetHex(const char* str, UInt16* retNum)
 {
-    UInt16 t;
+    UInt8 th;
+    UInt8 tl;
 
-    t = 0;
-
-    if (*str >= '0' && *str <= '9')
-        t = *str - '0';
-    else
-        if (*str >= 'A' && *str <= 'F')
-            t = *str - ('A' + 10);
-        else if (*str >= 'a' && *str <= 'f')
-            t = *str - ('a' + 10);
-        else
-            return 0;
-
-    t <<= 4;
+    th = HexChar2num(*str);
+    if (th > 0x0f)
+        return 0;
     str++;
 
-    if (*str >= '0' && *str <= '9')
-        t += *str - '0';
-    else
-        if (*str >= 'A' && *str <= 'F')
-            t += *str - ('A' + 10);
-        else if (*str >= 'a' && *str <= 'f')
-            t += *str - ('a' + 10);
-        else
-            return 0;
+    tl = HexChar2num(*str);
+    if (tl > 0x0f)
+        return 0;
 
-    *retNum = t;
+    *retNum = (th << 4) | tl;
     return 1;
 }
 
@@ -342,7 +351,7 @@ void Atom_charsetResetAll()
 {
     register UInt8 t;
 
-    for (t = 0; t < (sizeof(m.atom.charset.map) / sizeof(m.atom.charset.map)[0]); t++)
+    for (t = 0; t < sizeidx(m.atom.charset.map); t++)
         m.atom.charset.map[t] = 0L;
 
     return;
@@ -387,7 +396,7 @@ void Atom_charsetInvert()
 {
     register UInt8 t;
 
-    for (t = 0; t < (sizeof(m.atom.charset.map) / sizeof(m.atom.charset.map)[0]); t++)
+    for (t = 0; t < sizeidx(m.atom.charset.map); t++)
         m.atom.charset.map[t] = ~m.atom.charset.map[t];
 
     m.atom.charset.map[0] &= ~1L;                    // \0 cannot be in charset
@@ -403,7 +412,7 @@ void Atom_charsetMerge(CHARSET* charsetP)
 {
     register UInt8 t;
 
-    for (t = 0; t < (sizeof(m.atom.charset.map) / sizeof(m.atom.charset.map)[0]); t++)
+    for (t = 0; t < sizeidx(m.atom.charset.map); t++)
         m.atom.charset.map[t] |= charsetP->map[t];
 
     return;
@@ -417,7 +426,7 @@ void Atom_charsetExport(CHARSET* charsetDstP)
 {
     register UInt8 t;
 
-    for (t = 0; t < (sizeof(charsetDstP->map) / sizeof(charsetDstP->map)[0]); t++)
+    for (t = 0; t < sizeidx(charsetDstP->map); t++)
         charsetDstP->map[t] = m.atom.charset.map[t];
 
     return;
@@ -431,7 +440,7 @@ void Atom_charsetImport(CHARSET* charsetSrcP)
 {
     register UInt8 t;
 
-    for (t = 0; t < (sizeof(m.atom.charset.map) / sizeof(m.atom.charset.map)[0]); t++)
+    for (t = 0; t < sizeidx(m.atom.charset.map); t++)
         m.atom.charset.map[t] = charsetSrcP->map[t];
 
     return;
@@ -1674,9 +1683,14 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
             if (m.atom.c == '^')                                    // ^ match only from str begin
             {
-                if (segmentP->strParseP != m.strOrigP)              // if not first char of ORIGINAL str: fail
-                    return 0;
-                break;
+                if (segmentP->strParseP == m.strOrigP)              // if 1st char: ok
+                    break;
+
+                if (m.isMultiLine)                                  // if multiline: ok also if preceding char was \r or \n
+                    if (segmentP->strParseP[-1] == '\r' || segmentP->strParseP[-1] == '\n')
+                        break;
+
+                goto BR_SEGMENT_MATCH_FAIL;                         // fail
             }
 
             if (m.atom.c == '$')                                    // $ end of string \0 EOS 
@@ -2111,7 +2125,8 @@ int main()
     MxRegex_init();
 
     // TEST 
-    b = MxRegex("^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6})$","address.ext@gmail.com", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,40)
+    b = MxRegex("^123$|^456", "asd\n123\raaa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE);
+    //b = MxRegex("^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6})$", "address.ext@gmail.com", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,21)
     //b = MxRegex("^[\\w-.]+(\\.\\w{2,3})$", "apn.vodafone.it", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,15)(12,15)
     //b = MxRegex("(a.*z|b.*y)*.*", "azbazbyc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  // (0,8) [ (0,5) ]
     //b = MxRegex( "a(b)|c(d)|a(e)f", "aef",REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);     // (0,3)(?,?)(?,?)(1,2)
