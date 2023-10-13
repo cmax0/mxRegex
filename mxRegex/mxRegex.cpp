@@ -52,11 +52,22 @@ UInt16 step;
 // CONST
 
 
-// predefined charsets 
+// predefined charsets (non hardcoded)
 
-const char* const C_WORD_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
-const char* const C_DIGIT_CHARSET = "0123456789";
-const char* const C_WHITESPACE_CHARSET = " \t\r\n\v\f";
+#if CONST_CHARSET 
+
+const CHARSET C_WORD_CHARSET = {0x00000000, 0x03ff0000, 0x87fffffe, 0x07fffffe, 0x00000000, 0x00000000, 0x00000000, 0x00000000};
+const CHARSET C_DIGIT_CHARSET = {0x00000000, 0x03ff0000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000};
+const CHARSET C_WHITESPACE_CHARSET = {0x00003e00, 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000};
+const CHARSET C_DOT_CHARSET = { 0xfffffffe, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff };
+
+#else
+
+const char* const C_WORD_CHARSET_STR = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
+const char* const C_DIGIT_CHARSET_STR = "0123456789";
+const char* const C_WHITESPACE_CHARSET_STR = " \t\r\n\v\f";
+
+#endif
 
 const char* const C_ANCHOR_NO_ESC_CHARSET = "bB";                           // anchor after escape (i.e. no $ ^)
 const char* const C_ANCHOR_META_NO_ESC_CHARSET = "wWdDsS";                  // metaclass after escape (i.e. no .)
@@ -278,8 +289,8 @@ UInt8 BacktrackIterate(const char* regexParseP)
             continue;
 
         if (bP->maxOcc != BACKTRACK_MAXOCC                      // if backtrack evaluated once
-            && bP->maxOcc > bP->minOcc                      // and needs new iteration, restart at right 
-            && bP->regexParseP > cP)                        // and mostright right: save
+            && bP->maxOcc > bP->minOcc                          // and needs new iteration, restart at right 
+            && bP->regexParseP > cP)                            // and mostright right: save
         {
             t2 = t1;
             cP = bP->regexParseP;
@@ -351,7 +362,7 @@ void Atom_charsetResetAll()
 {
     register UInt8 t;
 
-    for (t = 0; t < sizeidx(m.atom.charset.map); t++)
+    for (t = 0; t < sizeidx_(m.atom.charset.map); t++)
         m.atom.charset.map[t] = 0L;
 
     return;
@@ -396,7 +407,7 @@ void Atom_charsetInvert()
 {
     register UInt8 t;
 
-    for (t = 0; t < sizeidx(m.atom.charset.map); t++)
+    for (t = 0; t < sizeidx_(m.atom.charset.map); t++)
         m.atom.charset.map[t] = ~m.atom.charset.map[t];
 
     m.atom.charset.map[0] &= ~1L;                    // \0 cannot be in charset
@@ -408,11 +419,11 @@ void Atom_charsetInvert()
 
 // merge charset to working charset 
 
-void Atom_charsetMerge(CHARSET* charsetP)
+void Atom_charsetMerge(const CHARSET* charsetP)
 {
     register UInt8 t;
 
-    for (t = 0; t < sizeidx(m.atom.charset.map); t++)
+    for (t = 0; t < sizeidx_(m.atom.charset.map); t++)
         m.atom.charset.map[t] |= charsetP->map[t];
 
     return;
@@ -426,7 +437,7 @@ void Atom_charsetExport(CHARSET* charsetDstP)
 {
     register UInt8 t;
 
-    for (t = 0; t < sizeidx(charsetDstP->map); t++)
+    for (t = 0; t < sizeidx_(charsetDstP->map); t++)
         charsetDstP->map[t] = m.atom.charset.map[t];
 
     return;
@@ -436,11 +447,11 @@ void Atom_charsetExport(CHARSET* charsetDstP)
 
 // import (copy) to working charset 
 
-void Atom_charsetImport(CHARSET* charsetSrcP)
+void Atom_charsetImport(const CHARSET* charsetSrcP)
 {
     register UInt8 t;
 
-    for (t = 0; t < sizeidx(m.atom.charset.map); t++)
+    for (t = 0; t < sizeidx_(m.atom.charset.map); t++)
         m.atom.charset.map[t] = charsetSrcP->map[t];
 
     return;
@@ -450,7 +461,7 @@ void Atom_charsetImport(CHARSET* charsetSrcP)
 
 // check if char is in charset
 
-UInt8 Atom_charInCharset(CHARSET* charsetP, const char c)
+UInt8 Atom_charInCharset(const CHARSET* charsetP, const char c)
 {
     if (((charsetP->map[c / 32]) & (1L << (c & 31))))
         return 1;
@@ -466,7 +477,11 @@ UInt8 Atom_charInCharset(CHARSET* charsetP, const char c)
 
 UInt8 IsWord(const char c)
 {
+#if CONST_CHARSET
+    return Atom_charInCharset(&C_WORD_CHARSET, c);
+#else
     return Atom_charInCharset(&m.charset_word, c);
+#endif
 }
 
 
@@ -517,34 +532,58 @@ void Atom_charsetAddClass(const char c)
     switch (c)
     {
     case 'w':                   // \w: "a-zA-Z0-9_" + accented (if in charset)
+#if CONST_CHARSET
+        Atom_charsetMerge(&C_WORD_CHARSET);
+#else
         Atom_charsetMerge(&m.charset_word);
+#endif
         break;
 
     case 'W':                   // \W: ^\w
         Atom_charsetExport(&csTmp);
+#if CONST_CHARSET
+        Atom_charsetImport(&C_WORD_CHARSET);
+#else
         Atom_charsetImport(&m.charset_word);
+#endif
         Atom_charsetInvert();
         Atom_charsetMerge(&csTmp);
         break;
 
     case 'd':                   // \d: "0-9"
+#if CONST_CHARSET
+        Atom_charsetMerge(&C_DIGIT_CHARSET);
+#else
         Atom_charsetMerge(&m.charset_digit);
+#endif
         break;
 
     case 'D':                   // \D: ^\d
         Atom_charsetExport(&csTmp);
+#if CONST_CHARSET
+        Atom_charsetImport(&C_DIGIT_CHARSET);
+#else
         Atom_charsetImport(&m.charset_digit);
+#endif
         Atom_charsetInvert();
         Atom_charsetMerge(&csTmp);
         break;
 
     case 's':                   // \s: whitespace tab cr lf vt ff
+#if CONST_CHARSET
+        Atom_charsetMerge(&C_WHITESPACE_CHARSET);
+#else
         Atom_charsetMerge(&m.charset_whitespace);
+#endif
         break;
 
     case 'S':                   // \S: ^\s
         Atom_charsetExport(&csTmp);
+#if CONST_CHARSET
+        Atom_charsetImport(&C_WHITESPACE_CHARSET);
+#else
         Atom_charsetImport(&m.charset_whitespace);
+#endif
         Atom_charsetInvert();
         Atom_charsetMerge(&csTmp);
         break;
@@ -864,7 +903,11 @@ REGEX_STS GetRegexAtom(const char* charP)
 
     case '.':                                               // metaclass . (any char)  
 
+#if CONST_CHARSET 
+        Atom_charsetImport(&C_DOT_CHARSET);
+#else
         Atom_charsetImport(&m.charset_dot);
+#endif
         if (!m.isSingleLine)                                 // if NOT mode "single line", remove [\r\n] to set
         {
             Atom_charsetRemoveChar('\r');                                   
@@ -1955,25 +1998,29 @@ void ClearDescriptors()
 void MxRegex_init()
 {
 
+#if !CONST_CHARSET
+
     // prepare predefined charset
     // used for code optimization in case of complex sets
     // could be hardcoded in order to save RAM (160 bytes)
 
-    Atom_charsetResetAll();                                         // . (included \r\n)
+    Atom_charsetResetAll();                                         // . (include \r\n)
     Atom_charsetInvert();
     Atom_charsetExport(&m.charset_dot);
 
     Atom_charsetResetAll();                                         // \w
-    Atom_charsetAddStr(C_WORD_CHARSET);
+    Atom_charsetAddStr(C_WORD_CHARSET_STR);
     Atom_charsetExport(&m.charset_word);
 
     Atom_charsetResetAll();                                         // \d
-    Atom_charsetAddStr(C_DIGIT_CHARSET);
+    Atom_charsetAddStr(C_DIGIT_CHARSET_STR);
     Atom_charsetExport(&m.charset_digit);
 
     Atom_charsetResetAll();                                         // \s
-    Atom_charsetAddStr(C_WHITESPACE_CHARSET);
+    Atom_charsetAddStr(C_WHITESPACE_CHARSET_STR);
     Atom_charsetExport(&m.charset_whitespace);
+
+#endif
 
     return;
 }
@@ -2124,13 +2171,13 @@ int main()
 
     MxRegex_init();
 
-    // TEST 
-    b = MxRegex("^123$|^456", "asd\n123\raaa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE);
+    b = MxRegex("^\\+CLCC:\\s*\\d+,\\d+,4,\\d+,\\d+,\"([^\"]+)\",\\d+", "+CLCC: 1,1,4,0,0,\"+3111234567\",129", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); 
+    //b = MxRegex("^123$|^456", "asd\n123\raaa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (4,7)
     //b = MxRegex("^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6})$", "address.ext@gmail.com", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,21)
     //b = MxRegex("^[\\w-.]+(\\.\\w{2,3})$", "apn.vodafone.it", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,15)(12,15)
     //b = MxRegex("(a.*z|b.*y)*.*", "azbazbyc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  // (0,8) [ (0,5) ]
     //b = MxRegex( "a(b)|c(d)|a(e)f", "aef",REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);     // (0,3)(?,?)(?,?)(1,2)
-    //b = MxRegex((a|b)*c", "abc", "REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);   // (0,3)(?,?)(?,?)(1,2) 
+    //b = MxRegex("(a|b)*c", "abc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);   // (0,3)(?,?)(?,?)(1,2) 
     //b = MxRegex("(a|b)*c|(a|ab)*c", "xc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);       // (1,2)  
     //b = MxRegex("(.a|.b).*|.*(.a|.b)", "xa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);       // (0,2)(0,2)
     //b = MxRegex("a+b+c", "aabbabc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);       // (4,7)
@@ -2149,7 +2196,7 @@ int main()
     //b = MxRegex("(wee|week)(knights|night)(s*)", "weeknights", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0-10)(0,3)(3,10)(10,10)
     //b = MxRegex("(weeka|wee)(night|knights)", "weeknights", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  // (0-10)(0,3)(3,10)
     //b = MxRegex("^\\s*(GET|POST)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)", " \tGET /index.html HTTP/1.0\r\n\r\n", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  
-    //b = MxRegex("[.]","a", REGEXMODE_SINGLELINE);
+    //b = MxRegex("[.]","a", REGEXMODE_SINGLELINE);  // fail
 
     snprintf(buf, sizeof(buf), "\r\nResponse: %s\r\nstatus code: %d \r\ncapsNum: %d\r\n\r", b ? "OK" : "FAIL", m.retSts, m.capsNum);
     OutputDebugStringA((LPCSTR)buf);

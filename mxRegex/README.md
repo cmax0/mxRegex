@@ -13,15 +13,20 @@ Allocates about 1K RAM on STM32 ARM, but size may be reduced changing the #defin
 #define MAX_ALTSEG 24     // max number of alternative segments (a|b)
 #define MAX_CAPS 12       // max number of capturing brackets, including base caps[0] on regex match.
 #define MAX_BACKTRACK 32  // max backtracks
+#define CONST_CHARSET 1   // use hardcoded charset (default)
+
 ```
-<br>&nbsp;
+<br>Using CONST_CHARSET = 0 will define \s \d \w and '.' charset at runtime: in such case, MxRegex_init() must be invoked once at startup.
+
 Developed on Visual Studio 2022.
-<br>&nbsp;
+<br><br>
+
+
 #### Usage
 Usage is quite straightforward:
 
 ```c
-    // called once at startup
+    // called once at startup, if CONST_CHARSET = 0
     MxRegex_init();                             
 
     // perform regex, return nr of captures
@@ -40,7 +45,7 @@ Usage is quite straightforward:
         // No match
     }
 ```
-If regex pattern is hard coded, usually there is no need to check for error conditions. Full data is anyway accessible:
+If regex pattern is hard coded, usually there is no need to check for error conditions as long as regex syntax and complexity is valid. Full data is anyway accessible:
 ```c
     const MXREGEX_M* mP;
 
@@ -79,6 +84,9 @@ You should have received a copy of the GNU General Public License and GNU Lesser
 &nbsp;
 #### Changelog
 
+##### 1.02
+- hardcoded charset . \d \s \s (optimization)
+ 
 ##### 1.01
 - multiline implementation
 

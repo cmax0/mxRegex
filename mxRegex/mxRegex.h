@@ -25,8 +25,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 
 #pragma once
 
-#ifndef MXREGES_H
-#define MXREGES_H
+#ifndef MXREGEX_H
+#define MXREGEX_H
 
 
 #ifdef __cplusplus
@@ -34,7 +34,7 @@ extern "C" {
 #endif
 
 
-#define VER "1.01"                              // version
+#define VER "1.02"                              // version
 
 
 
@@ -44,6 +44,7 @@ extern "C" {
 #define MAX_ALTSEG 16                           // max number of alternative segments (a|b)
 #define MAX_CAPS 8                              // max number of capturing brackets, including base caps[0] on regex match.
 #define MAX_BACKTRACK 32                        // max backtracks
+#define CONST_CHARSET 1                         // use hardcoded charset: if true, there is no need to call MxRegex_init()
 
 #define MAX_ITERATE 1024                        // max iterations on same string (watchdog)
 
@@ -51,7 +52,7 @@ typedef unsigned long UInt32;
 typedef unsigned short UInt16;
 typedef unsigned char UInt8;
 
-#define sizeidx(x) (sizeof(x)/sizeof(x[0]))      
+#define sizeidx_(x) (sizeof(x)/sizeof(x[0]))    // nr of elements of an array    
 
 
 
@@ -115,7 +116,7 @@ typedef enum
 
 typedef struct
 {
-    UInt32  map[8];
+    UInt32  map[8];                             // must be 32 bits!
 
 } CHARSET;
 
@@ -237,12 +238,13 @@ typedef struct
 
     UInt16 iterateCnt;                                  // watchdog
 
-    // for code optimization, could be hardcoded to save RAM (128 bytes). See MxRegex_init()
-
+    // for code optimization, can be hardcoded to save RAM (128 bytes). See MxRegex_init()
+#if !CONST_CHARSET
     CHARSET charset_dot;                                // . non singleline, including \r\n
     CHARSET charset_word;                               // \w
     CHARSET charset_digit;                              // \d
     CHARSET charset_whitespace;                         // \s
+#endif
 
 } MXREGEX_M;
 
@@ -264,4 +266,4 @@ extern const MXREGEX_M* MxRegex_getData();                                      
 #endif
 
 
-#endif
+#endif // #ifndef MXREGEX_H
