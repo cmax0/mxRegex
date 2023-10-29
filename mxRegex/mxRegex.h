@@ -34,7 +34,7 @@ extern "C" {
 #endif
 
 
-#define VER "1.02"                              // version
+#define VER "1.03"                              // version
 
 
 
@@ -42,7 +42,7 @@ extern "C" {
 
 #define MAX_RECURSE 4                           // max regex nesting i.e. brackets within brackets.
 #define MAX_ALTSEG 16                           // max number of alternative segments (a|b)
-#define MAX_CAPS 8                              // max number of capturing brackets, including base caps[0] on regex match.
+#define MAX_CAPS 10                             // max number of capturing brackets, including base caps[0] on regex match.
 #define MAX_BACKTRACK 32                        // max backtracks
 #define CONST_CHARSET 1                         // use hardcoded charset: if true, there is no need to call MxRegex_init()
 
@@ -50,6 +50,7 @@ extern "C" {
 
 typedef unsigned long UInt32;
 typedef unsigned short UInt16;
+typedef signed short Int16;
 typedef unsigned char UInt8;
 
 #define sizeidx_(x) (sizeof(x)/sizeof(x[0]))    // nr of elements of an array    

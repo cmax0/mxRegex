@@ -58,10 +58,11 @@ If regex pattern is hard coded, usually there is no need to check for error cond
 - ISO 8859-x 8-bit charset
 - occurrence: ? * + {a[,[b]]} 
 - char class: . \s \S \d \D \w \W \xHH
+- custom char class: \h hex digit [0-9a-fA-F]
 - charset: [a] negation [^a] range [a-b]
 - anchor: ^ $ \b \B
 - group: (...) non-capturing (?:...)
-- altenative segment: a|b
+- altenative segments: a|b
 - mode: case sensitive/insensitive
 - mode: singleline (for . charclass)
 - mode: multiline (for ^ $ anchors)
@@ -69,9 +70,7 @@ If regex pattern is hard coded, usually there is no need to check for error cond
 Limitation:
 - return on 1st match
 - no unicode support
-
-To be implemented:
-- non-greedy occurrences
+- greedy mode only (i.e. no lazy modifier)
 
 &nbsp;
 #### Licence
@@ -84,10 +83,19 @@ You should have received a copy of the GNU General Public License and GNU Lesser
 &nbsp;
 #### Changelog
 
+##### 1.03
+NEW
+- custom char class \h hex digit [0-9a-fA-F]
+
+FIX
+- max captures are MAX_CAPS-1 instead of MAX_CAPS
+
 ##### 1.02
+NEW
 - hardcoded charset . \d \s \s (optimization)
  
 ##### 1.01
+NEW
 - multiline implementation
 
 ##### 1.00

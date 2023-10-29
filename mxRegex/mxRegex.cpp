@@ -70,7 +70,7 @@ const char* const C_WHITESPACE_CHARSET_STR = " \t\r\n\v\f";
 #endif
 
 const char* const C_ANCHOR_NO_ESC_CHARSET = "bB";                           // anchor after escape (i.e. no $ ^)
-const char* const C_ANCHOR_META_NO_ESC_CHARSET = "wWdDsS";                  // metaclass after escape (i.e. no .)
+const char* const C_ANCHOR_META_NO_ESC_CHARSET = "wWdDsSh";                  // metaclass after escape (i.e. no .)
 
 
 // CODE
@@ -86,7 +86,102 @@ void Nop()
 {
 }
 
+
+
+
+UInt16 StrLen(const char* str, UInt16 len)
+{
+    UInt16 t;
+
+    for (t = 0; t < len; t++)
+        if (str[t] == '\0')
+            break;
+    return t;
+}
+
+
+
+
+// replace all occurrences within a string
+// 
+// str: original string to be modified
+// strMaxLen: max string length INCLUDING EOS \0 (always added); result may be truncated
+// findStr: search string (case sensitive), must be \0 terminated
+// replaceStr: string to replace placeholder, must be \0 terminated
+// ret:
+//  occurrences found (0 = no changes) 
+
+UInt16 StrReplace(char* str, UInt16 strMaxLen, const char* findStr, const char* replaceStr)
+{
+    Int16 strLen;
+    Int16 findStrLen;
+    Int16 replaceStrLen;
+    Int16  lenDiff;                                 // searchLen - replaceLen difference: negative -> shrink
+    UInt16 numOcc;
+    Int16  t;
+    Int16  t1;
+
+    // init
+
+    numOcc = 0;
+    strLen = StrLen(str, strMaxLen);
+    findStrLen = StrLen(findStr, 0x7fff);
+    if (strLen == 0 || findStrLen == 0)             // sanity check
+        return 0;
+
+    replaceStrLen = StrLen(replaceStr, 0x7fff);
+    lenDiff = replaceStrLen - findStrLen;
+
+    for (t = 0; t < strLen; t++)
+    {
+        if (t + findStrLen > strLen)                // if EOS: done
+            break;
+
+        for (t1 = 0; t1 < findStrLen; t1++)         // compare substring with findStr
+            if (str[t + t1] != findStr[t1])          // no match: fail
+                break;
+
+        if (t1 == findStrLen)                       // if match
+        {
+            numOcc++;
+
+            if (lenDiff > 0)                        // expand: shift to right
+            {
+                for (t1 = strLen - t - lenDiff; t1 >= findStrLen; t1--)
+                    str[t + t1 + lenDiff] = str[t + t1];
+                strLen += lenDiff;
+            }
+            else if (lenDiff < 0)                   // shrink: shift to left
+            {
+                for (t1 = 0; t1 < strLen + lenDiff; t1++)
+                    str[t + t1] = str[t + t1 - lenDiff];
+                strLen += lenDiff;
+            }
+
+            for (t1 = 0; t1 < replaceStrLen; t1++)  // replace
+            {
+                if (t + t1 >= strLen)
+                    break;
+                str[t + t1] = replaceStr[t1];
+            }
+
+            if (strLen > strMaxLen - 1)             // check & adj max len str (including \0
+                strLen = strMaxLen - 1;
+
+             str[strLen] = '\0';                    // always add \0 (possible truncation)
+
+            t += replaceStrLen - 1;
+
+        }// if (t1 == findStrLen)
+
+    }// for
+
+    return numOcc;                                  // ret nr occurrences found (replaces)
+}
+
 #endif
+
+
 
 
 // convert uppercase  a-z -> A-Z (may be replaced by library)
@@ -486,6 +581,10 @@ UInt8 IsWord(const char c)
 
 
 
+
+
+
+
 // parse unsigned UInt16 from string, till non-digit char, max 5 digit 
 // no overflow check 
 // parm
@@ -567,6 +666,15 @@ void Atom_charsetAddClass(const char c)
 #endif
         Atom_charsetInvert();
         Atom_charsetMerge(&csTmp);
+        break;
+
+    case 'h':                   // \h: "0-9A-Fa-f"   hex char (NON STANDARD)
+#if CONST_CHARSET
+        Atom_charsetMerge(&C_DIGIT_CHARSET);
+#else
+        Atom_charsetMerge(&m.charset_digit);
+#endif
+        Atom_charsetAddStr("abcdefABCDEF");
         break;
 
     case 's':                   // \s: whitespace tab cr lf vt ff
@@ -1294,7 +1402,7 @@ REGEX_STS SegmentInit(const UInt16 recurseNum, const char* strP, const char* reg
 
 
 
-// save caps is is capture
+// save capture in caps
 // ret
 // 1 ok, 0 fail (see retSts)
 // NOTE caps[0] is reserved to match, start from caps[1]
@@ -1315,7 +1423,7 @@ UInt8 CapsSave(SEGMENT* segmentP)
                 goto BR_SAVE;
         }
 
-        if (m.capsNum >= MAX_CAPS - 1)                      // check for ovf, add new caps
+        if (m.capsNum >= MAX_CAPS)                          // check for ovf, add new caps
         {
             m.retSts = REGEXSTS_CAPS_OVS;
             return 0;
@@ -1993,7 +2101,7 @@ void ClearDescriptors()
 
 
 // Init regex machine
-// MUST be called once at startup
+// MUST be called once at startup if CONST_CHARSET not used
 
 void MxRegex_init()
 {
@@ -2162,6 +2270,7 @@ const MXREGEX_M* MxRegex_getData()
 
 int main()
 {
+
     UInt8 b;
     UInt16 t;
 
@@ -2171,7 +2280,7 @@ int main()
 
     MxRegex_init();
 
-    b = MxRegex("^\\+CLCC:\\s*\\d+,\\d+,4,\\d+,\\d+,\"([^\"]+)\",\\d+", "+CLCC: 1,1,4,0,0,\"+3111234567\",129", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); 
+    b = MxRegex("0x(\\h+)", "test 0x1234 hex", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (4,7)
     //b = MxRegex("^123$|^456", "asd\n123\raaa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (4,7)
     //b = MxRegex("^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6})$", "address.ext@gmail.com", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,21)
     //b = MxRegex("^[\\w-.]+(\\.\\w{2,3})$", "apn.vodafone.it", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,15)(12,15)
