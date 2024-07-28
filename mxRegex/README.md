@@ -83,6 +83,10 @@ You should have received a copy of the GNU General Public License and GNU Lesser
 &nbsp;
 #### Changelog
 
+##### 1.04
+FIX
+- case insensitive not handled correctly in carset [...]
+
 ##### 1.03
 NEW
 - custom char class \h hex digit [0-9a-fA-F]

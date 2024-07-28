@@ -54,12 +54,12 @@ UInt16 step;
 
 // predefined charsets (non hardcoded)
 
-#if CONST_CHARSET 
+#if CONST_CHARSET
 
-const CHARSET C_WORD_CHARSET = {0x00000000, 0x03ff0000, 0x87fffffe, 0x07fffffe, 0x00000000, 0x00000000, 0x00000000, 0x00000000};
-const CHARSET C_DIGIT_CHARSET = {0x00000000, 0x03ff0000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000};
-const CHARSET C_WHITESPACE_CHARSET = {0x00003e00, 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000};
-const CHARSET C_DOT_CHARSET = { 0xfffffffe, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff };
+const CHARSET C_WORD_CHARSET = { {0x00000000, 0x03ff0000, 0x87fffffe, 0x07fffffe, 0x00000000, 0x00000000, 0x00000000, 0x00000000} };
+const CHARSET C_DIGIT_CHARSET = { {0x00000000, 0x03ff0000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000} };
+const CHARSET C_WHITESPACE_CHARSET = { {0x00003e00, 0x00000001, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000} };
+const CHARSET C_DOT_CHARSET = { {0xfffffffe, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff } };
 
 #else
 
@@ -86,100 +86,8 @@ void Nop()
 {
 }
 
-
-
-
-UInt16 StrLen(const char* str, UInt16 len)
-{
-    UInt16 t;
-
-    for (t = 0; t < len; t++)
-        if (str[t] == '\0')
-            break;
-    return t;
-}
-
-
-
-
-// replace all occurrences within a string
-// 
-// str: original string to be modified
-// strMaxLen: max string length INCLUDING EOS \0 (always added); result may be truncated
-// findStr: search string (case sensitive), must be \0 terminated
-// replaceStr: string to replace placeholder, must be \0 terminated
-// ret:
-//  occurrences found (0 = no changes) 
-
-UInt16 StrReplace(char* str, UInt16 strMaxLen, const char* findStr, const char* replaceStr)
-{
-    Int16 strLen;
-    Int16 findStrLen;
-    Int16 replaceStrLen;
-    Int16  lenDiff;                                 // searchLen - replaceLen difference: negative -> shrink
-    UInt16 numOcc;
-    Int16  t;
-    Int16  t1;
-
-    // init
-
-    numOcc = 0;
-    strLen = StrLen(str, strMaxLen);
-    findStrLen = StrLen(findStr, 0x7fff);
-    if (strLen == 0 || findStrLen == 0)             // sanity check
-        return 0;
-
-    replaceStrLen = StrLen(replaceStr, 0x7fff);
-    lenDiff = replaceStrLen - findStrLen;
-
-    for (t = 0; t < strLen; t++)
-    {
-        if (t + findStrLen > strLen)                // if EOS: done
-            break;
-
-        for (t1 = 0; t1 < findStrLen; t1++)         // compare substring with findStr
-            if (str[t + t1] != findStr[t1])          // no match: fail
-                break;
-
-        if (t1 == findStrLen)                       // if match
-        {
-            numOcc++;
-
-            if (lenDiff > 0)                        // expand: shift to right
-            {
-                for (t1 = strLen - t - lenDiff; t1 >= findStrLen; t1--)
-                    str[t + t1 + lenDiff] = str[t + t1];
-                strLen += lenDiff;
-            }
-            else if (lenDiff < 0)                   // shrink: shift to left
-            {
-                for (t1 = 0; t1 < strLen + lenDiff; t1++)
-                    str[t + t1] = str[t + t1 - lenDiff];
-                strLen += lenDiff;
-            }
-
-            for (t1 = 0; t1 < replaceStrLen; t1++)  // replace
-            {
-                if (t + t1 >= strLen)
-                    break;
-                str[t + t1] = replaceStr[t1];
-            }
-
-            if (strLen > strMaxLen - 1)             // check & adj max len str (including \0
-                strLen = strMaxLen - 1;
-
-             str[strLen] = '\0';                    // always add \0 (possible truncation)
-
-            t += replaceStrLen - 1;
-
-        }// if (t1 == findStrLen)
-
-    }// for
-
-    return numOcc;                                  // ret nr occurrences found (replaces)
-}
-
 #endif
+
 
 
 
@@ -195,7 +103,7 @@ char Upper(const char c)
 
 
 
-// check if digit (may be replaced by library) 
+// check if digit (may be replaced by library)
 
 UInt8 IsDigit(char c)
 {
@@ -230,7 +138,7 @@ UInt8 HexChar2num(const char c)
 
 // convert 2 hex digit to number
 // parm
-//  str     ptr to 2 digit hex 
+//  str     ptr to 2 digit hex
 //  retNum  ptr to returned value 0..255
 // ret
 //  0: fail, not a hex number
@@ -273,14 +181,14 @@ UInt8 CharInStr(const char c, const char* strP)
 //
 // BACKTRACK
 //
-// 
+//
 // We keep track of last MAX_BACKTRACK quantifiers of interest, wehere minOcc != maxOcc
 // bactrack position refers to 1st char after atom, e.g. regex"[ab]*cd", atom "[ab]*", position is &"c"
 
 
-// add a backtrack element 
-// if new element, set counter to max range: will be updated by parser, otherwise keep current counter. 
-// note: backtrack won't have duplicated regexParseP 
+// add a backtrack element
+// if new element, set counter to max range: will be updated by parser, otherwise keep current counter.
+// note: backtrack won't have duplicated regexParseP
 // parm
 //  regexP  position of backtrack
 // ret
@@ -349,8 +257,8 @@ void AltSegmRemoveAt(const char* regexP);
 
 
 
-// update backtracks for next iteration 
-// 
+// update backtracks for next iteration
+//
 // - sort backtrack items by parseP (i.e. regex left to right)
 // - search for last updatable element (right to left) at the right regexP
 // - if found, update element and restart counter of all elements at the right of it (i.e. nested)
@@ -384,7 +292,7 @@ UInt8 BacktrackIterate(const char* regexParseP)
             continue;
 
         if (bP->maxOcc != BACKTRACK_MAXOCC                      // if backtrack evaluated once
-            && bP->maxOcc > bP->minOcc                          // and needs new iteration, restart at right 
+            && bP->maxOcc > bP->minOcc                          // and needs new iteration, restart at right
             && bP->regexParseP > cP)                            // and mostright right: save
         {
             t2 = t1;
@@ -512,7 +420,7 @@ void Atom_charsetInvert()
 
 
 
-// merge charset to working charset 
+// merge charset to working charset
 
 void Atom_charsetMerge(const CHARSET* charsetP)
 {
@@ -540,7 +448,7 @@ void Atom_charsetExport(CHARSET* charsetDstP)
 
 
 
-// import (copy) to working charset 
+// import (copy) to working charset
 
 void Atom_charsetImport(const CHARSET* charsetSrcP)
 {
@@ -565,7 +473,7 @@ UInt8 Atom_charInCharset(const CHARSET* charsetP, const char c)
 
 
 
-// functions related to regex atoms 
+// functions related to regex atoms
 
 
 // check if char is in \w charset
@@ -585,8 +493,8 @@ UInt8 IsWord(const char c)
 
 
 
-// parse unsigned UInt16 from string, till non-digit char, max 5 digit 
-// no overflow check 
+// parse unsigned UInt16 from string, till non-digit char, max 5 digit
+// no overflow check
 // parm
 //  strP        ptr to begin of numeric string \d+
 //  &retLenP    RET ptr to number of char parsed
@@ -619,7 +527,7 @@ UInt16 ParseInt(const char* strP, UInt16* retLenP)
 
 
 
-// add escaped metaclass char \w\W\d\D.. to atom charset. 
+// add escaped metaclass char \w\W\d\D.. to atom charset.
 // '.' not handled here (not excaped)
 // parm
 //  c  metaclass char
@@ -752,7 +660,7 @@ UInt8 Atom_ParseQtf(const char* charP, UInt16* retLenP)
     case '{':                                                       // quantifier {min[,[max]]}
 
         m.atom.minOcc = ParseInt(charP, &t);                        // {min
-        m.atom.maxOcc = m.atom.minOcc;                              // default 
+        m.atom.maxOcc = m.atom.minOcc;                              // default
 
         if (t == 0)
         {
@@ -817,13 +725,13 @@ UInt8 Atom_ParseQtf(const char* charP, UInt16* retLenP)
 // get regex atom that may be used to match 1 char in str, with possible quantifier.
 // If it's a metaclass like \d or [ab], return charset
 // Here we handle backtrack save/check
-// parm 
-//  charP   prt to regex atom 
+// parm
+//  charP   prt to regex atom
 // ret
 //  REGEXSTS_OK: ok, atom descriptors stored in m.atom, m.atom.endP updated to ptr to next atom
 //  else: fatal error
 
-REGEX_STS GetRegexAtom(const char* charP)
+REGEX_STS GetRegexAtom(const char* charP, const UInt8 isCI)
 {
     UInt16 t;
 
@@ -838,7 +746,7 @@ REGEX_STS GetRegexAtom(const char* charP)
     switch (m.atom.c = *charP++)                          // save regex char and move to next
     {
 
-    case '\0':                                              // EOS 
+    case '\0':                                              // EOS
 
         m.atom.type = ATOMTYPE_EOS;
         m.atom.endP = charP;                             // set endP to \0 (len=0)
@@ -855,7 +763,7 @@ REGEX_STS GetRegexAtom(const char* charP)
             return REGEXSTS_SYNTAX;
         }
 
-        if(m.atom.c == 'x' && GetHex(charP, &t))         // if \xHH char hex code
+        if (m.atom.c == 'x' && GetHex(charP, &t))         // if \xHH char hex code
         {
             m.atom.c = (char)t;
             charP += 2;
@@ -884,7 +792,7 @@ REGEX_STS GetRegexAtom(const char* charP)
 
         Atom_charsetResetAll();                             // init set (empty)
         m.atom.charsetIsNegate = 0;                         // no negation [^
-        m.atom.charsetAllowNegate = 1;                      // waiting 1st char for possible negation 
+        m.atom.charsetAllowNegate = 1;                      // waiting 1st char for possible negation
         m.atom.gotMinus = 0;                                // no minus
         m.atom.charsetLastChar = 0;                         // no from-char in char range
 
@@ -897,12 +805,12 @@ REGEX_STS GetRegexAtom(const char* charP)
                 if (m.atom.gotMinus)                        // if char range - pending, treat - as simple char and add to charset
                     Atom_charsetAddChar('-');
                 charP++;                                    // skip ]
-                break;                                      // THIS IS THE ONLY EXIT POINT FOR CHARSET 
+                break;                                      // THIS IS THE ONLY EXIT POINT FOR CHARSET
             }
 
             if (*charP == '\0')                             // if EOS reached before ], fail
             {
-                m.atom.endP = charP;                        // return ptr to \0 
+                m.atom.endP = charP;                        // return ptr to \0
                 return REGEXSTS_SYNTAX;
             }
 
@@ -972,8 +880,16 @@ REGEX_STS GetRegexAtom(const char* charP)
                         return REGEXSTS_SYNTAX;
                     }
 
-                    for (t = m.atom.charsetLastChar; t <= (UInt16)(*charP); t++)
-                        Atom_charsetAddChar((char)t);       // add range to charset
+                    if (isCI)
+                    {
+                        for (t = m.atom.charsetLastChar; t <= (UInt16)(*charP); t++)
+                            Atom_charsetAddChar(Upper((char)t));       // add range to charset
+                    }
+                    else
+                    {
+                        for (t = m.atom.charsetLastChar; t <= (UInt16)(*charP); t++)
+                            Atom_charsetAddChar((char)t);       // add range to charset
+                    }
 
                     m.atom.gotMinus = 0;                    // invalidate this char range
                     m.atom.charsetLastChar = 0;
@@ -983,7 +899,10 @@ REGEX_STS GetRegexAtom(const char* charP)
 
         BR_CHARSET_ADDCHAR:                                 // *** entrypoint add simple char to charset
 
-            Atom_charsetAddChar(*charP);                    // add char to charset
+            if (isCI)
+                Atom_charsetAddChar(Upper(*charP));         // add char to charset
+            else
+                Atom_charsetAddChar(*charP);                // add char to charset
             m.atom.charsetLastChar = *charP;                // save char for possible char range
             m.atom.gotMinus = 0;                            // wait for next -
 
@@ -996,7 +915,7 @@ REGEX_STS GetRegexAtom(const char* charP)
         break;
 
 
-    case '(':                                               // metachar ( 
+    case '(':                                               // metachar (
 
         m.atom.endP = charP;
         m.atom.type = ATOMTYPE_BRACKETOPEN;
@@ -1009,23 +928,23 @@ REGEX_STS GetRegexAtom(const char* charP)
         break;
 
 
-    case '.':                                               // metaclass . (any char)  
+    case '.':                                               // metaclass . (any char)
 
-#if CONST_CHARSET 
+#if CONST_CHARSET
         Atom_charsetImport(&C_DOT_CHARSET);
 #else
         Atom_charsetImport(&m.charset_dot);
 #endif
         if (!m.isSingleLine)                                 // if NOT mode "single line", remove [\r\n] to set
         {
-            Atom_charsetRemoveChar('\r');                                   
+            Atom_charsetRemoveChar('\r');
             Atom_charsetRemoveChar('\n');
         }
         m.atom.type = ATOMTYPE_METACLASS;
         break;
 
 
-    case '^':                                               // anchor str begin 
+    case '^':                                               // anchor str begin
     case '$':                                               // anchor str end
 
         m.atom.endP = charP;
@@ -1050,7 +969,7 @@ REGEX_STS GetRegexAtom(const char* charP)
         return REGEXSTS_SYNTAX;
 
 
-    default:                                                // simple char 
+    default:                                                // simple char
 
         break;                                              // already in atom.c, check quantifier
 
@@ -1081,7 +1000,7 @@ REGEX_STS GetRegexAtom(const char* charP)
 
 
 //
-// ALTERNATIVE SEGMENTS 
+// ALTERNATIVE SEGMENTS
 //
 
 
@@ -1157,7 +1076,7 @@ UInt8 AltSegmAdd(const char* regexP, const char* regexNextP)
 // parm
 //  regexP    ptr alternative segments base
 // ret
-//  ptr current alternative segment 
+//  ptr current alternative segment
 //  0 no alternative segment found
 
 const char* AltSegmGet(const char* regexP)
@@ -1231,12 +1150,12 @@ void AltSegmRemoveAt(const char* regexP)
 
 // search for alternative segment
 //
-// parm 
-//  segmentP    
-//  mode 0: search for ')', 1: search for '|' or ')', 
-// ret 
-//  0 no further alt segment or error 
-//  1 found ')'  
+// parm
+//  segmentP
+//  mode 0: search for ')', 1: search for '|' or ')',
+// ret
+//  0 no further alt segment or error
+//  1 found ')'
 //  2 found '|'
 //  segmentP->regexParseP updated to char after closing element
 
@@ -1300,8 +1219,8 @@ UInt8 AltSegmSearch(SEGMENT* segmentP, UInt8 mode)
 
 
 
-// update altSegm for next iteration 
-// 
+// update altSegm for next iteration
+//
 // - search for righmost altSegm nextP
 // - if found, move to next element
 // parm
@@ -1350,7 +1269,7 @@ UInt8 AltSegmIterate(const char* regexP)
         return 1;
     }
 
-#if MXREGEX_DEBUG                                                        
+#if MXREGEX_DEBUG
     snprintf(buf, sizeof(buf), "- AltSegmIterate no change\r\n");
     OutputDebugStringA((LPCSTR)buf);
 #endif
@@ -1369,7 +1288,7 @@ UInt8 AltSegmIterate(const char* regexP)
 //  recurseNum  nesting level
 //  strP        ptr base str
 //  regexP      ptr base regex
-//  mode        regex flags 
+//  mode        regex flags
 //  isCap       capturing segment
 // ret
 //  REGEXSTS_OK: ok
@@ -1392,7 +1311,7 @@ REGEX_STS SegmentInit(const UInt16 recurseNum, const char* strP, const char* reg
     segmentP->regexParseP = regexP;             // ptr regex in parsing
     segmentP->strCapP = strP;                   // ptr capture str
     segmentP->mode = mode;                      // segment mode
-    segmentP->isCap = isCap;                    // is a capture 
+    segmentP->isCap = isCap;                    // is a capture
 
     segmentP->isCI = (mode & REGEXMODE_CASE_INSENSITIVE) ? 1 : 0;       // set initial case insensitive flag
 
@@ -1402,7 +1321,7 @@ REGEX_STS SegmentInit(const UInt16 recurseNum, const char* strP, const char* reg
 
 
 
-// save capture in caps
+// save caps if is capture
 // ret
 // 1 ok, 0 fail (see retSts)
 // NOTE caps[0] is reserved to match, start from caps[1]
@@ -1423,7 +1342,7 @@ UInt8 CapsSave(SEGMENT* segmentP)
                 goto BR_SAVE;
         }
 
-        if (m.capsNum >= MAX_CAPS)                          // check for ovf, add new caps
+        if (m.capsNum >= MAX_CAPS)                      	// check for ovf, add new caps
         {
             m.retSts = REGEXSTS_CAPS_OVS;
             return 0;
@@ -1478,8 +1397,8 @@ void CapsRemove(const char* regexP)
 
 // recursive regex parser
 // possible captures will be saved to caps, incrementing capsNum
-// parm: 
-//  recurseNum: recursion depth; bound check in MxRegex_init 
+// parm:
+//  recurseNum: recursion depth; bound check in MxRegex_init
 // ret
 //  1 regex match
 //  0 fail, check retSts for fatal errors
@@ -1500,7 +1419,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
     segmentP->strCharAcquired = 0;                                  // clear flag char acquired
 
 
-    if ((cP = AltSegmGet(segmentP->regexP)))                        // get current alternative segment (0 = not found). 
+    if ((cP = AltSegmGet(segmentP->regexP)))                        // get current alternative segment (0 = not found).
     {
         segmentP->regexParseP = cP;                                 // if exists, set parser
 #if MXREGEX_DEBUG
@@ -1537,7 +1456,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
             return 0;
         }
 
-        if ((m.retSts = GetRegexAtom(segmentP->regexParseP)) != REGEXSTS_OK)    // get next atom
+        if ((m.retSts = GetRegexAtom(segmentP->regexParseP, segmentP->isCI)) != REGEXSTS_OK)    // get next atom
             return 0;                                                           // if errors reported, fail
 
         segmentP->regexParseP = m.atom.endP;                        // move regex parser AFTER atom
@@ -1579,7 +1498,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
                 return 1;                                           // REGEX MATCH, complete
             }
 
-            // here recurseNum > 0, it's a nested alternative segment i.e. between (..): 
+            // here recurseNum > 0, it's a nested alternative segment i.e. between (..):
             // we save the the pointer where to resume regex parsing if same segment is re-evaluated.
 
             if (!CapsSave(segmentP))                                // save caps if is capture
@@ -1594,7 +1513,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
             AltSegmAdd(segmentP->regexP, segmentP->regexParseP);    // save next segment, if follows
 
-            if (AltSegmSearch(segmentP, 0))                         // search for closing bracket, if found: 
+            if (AltSegmSearch(segmentP, 0))                         // search for closing bracket, if found:
             {
                 if (Atom_ParseQtf(segmentP->regexParseP, &t))       // if valid quantifier: save and skip it
                     segmentP->regexParseP += t;
@@ -1610,7 +1529,10 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
         case ATOMTYPE_METACLASS:                                    // charset
 
-            t = Atom_charInCharset(&m.atom.charset, *segmentP->strParseP) ? 1 : 0;  // t=1 if char in charset. NOTE if str at EOS \0, fail
+            if (segmentP->isCI)                                     // fix 1.04
+                t = Atom_charInCharset(&m.atom.charset, Upper(*segmentP->strParseP)) ? 1 : 0;  // t=1 if char in charset. NOTE if str at EOS \0, fail
+            else
+                t = Atom_charInCharset(&m.atom.charset, *segmentP->strParseP) ? 1 : 0;  // t=1 if char in charset. NOTE if str at EOS \0, fail
             goto BR_CHECK_MATCH_ATOM;
 
 
@@ -1635,7 +1557,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
             if (t == 0)
             {
-                // 
+                //
                 // HERE WE HAVE A CHAR/CHARSET NO MATCH CONDITION, THERE COULD BE ALTERNATIVE SEGMENTS
                 //
 
@@ -1657,7 +1579,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
                     break;                                          // move to next atom on same str char
 
 
-                // here regex failed search on current segment, check if follows an alternative segment | 
+                // here regex failed search on current segment, check if follows an alternative segment |
                 // if present: restart regex parse from 1st atom of alternative segment,
                 // otherwhise: im possible, skip to ) for current nidification and evaluate quantifier for further processing
 
@@ -1683,7 +1605,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
                 if (t == 1)                                         // )
                 {
-                    segmentP->parseFailed = 1;                      // report segment fail 
+                    segmentP->parseFailed = 1;                      // report segment fail
                     if (Atom_ParseQtf(segmentP->regexParseP, &t))   // if valid quantifier: save and skip it
                         segmentP->regexParseP += t;
                     goto BR_BRACKETCLOSE;                           // handle bracket close with quantifier
@@ -1691,12 +1613,12 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
                 // here there is no alternate segment nor closing bracket
 
-                if (m.retSts != REGEXSTS_OK)                        // check for fatal error condition    
+                if (m.retSts != REGEXSTS_OK)                        // check for fatal error condition
                     return 0;
 
                 //
                 // HERE WE HAVE A REGEX NO MATCH CONDITION ON CURRENT SEGMENT
-                // 
+                //
 
                 if (!segmentP->isEnoughOcc)                     // if not enough occurrences collected check for backtrack and altSegm
                 {
@@ -1754,14 +1676,14 @@ UInt8 MxRegex_(UInt16 recurseNum)
 #endif
 
 
-            BR_RETRY:                                           // *** entrypoint retry regex on str 
+            BR_RETRY:                                           // *** entrypoint retry regex on str
 
 #if MXREGEX_DEBUG
                 snprintf(buf, sizeof(buf), "\r\n*** RETRY regexP: %s\r\n", segmentP->regexP);
                 OutputDebugStringA((LPCSTR)buf);
 #endif
                 //AltSegmRemoveAt(segmentP->regexP);
-                if ((cP = AltSegmGet(segmentP->regexP)))                        // get current alternative segment (0 = not found). 
+                if ((cP = AltSegmGet(segmentP->regexP)))                        // get current alternative segment (0 = not found).
                 {
                     segmentP->regexParseP = cP;                                 // if exists, set parser
 #if MXREGEX_DEBUG
@@ -1774,7 +1696,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
                 segmentP->strCharAcquired = 0;                  // clear flag char acquired
                 segmentP->parseFailed = 0;                      // clear error status for this segment
-                segmentP->strParseP = segmentP->strP;           // restart parsing 
+                segmentP->strParseP = segmentP->strP;           // restart parsing
 
                 CapsRemove(segmentP->regexP);
                 break;                                          // continue (or restart) evaluation
@@ -1798,7 +1720,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
 #if MXREGEX_DEBUG
                     snprintf(buf, sizeof(buf), "- backtrack match atom maxOcc = %d\r\n", backtrackP->maxOcc);
                     OutputDebugStringA((LPCSTR)buf);
-#endif                    
+#endif
                 }
             }
 
@@ -1844,7 +1766,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
                 goto BR_SEGMENT_MATCH_FAIL;                         // fail
             }
 
-            if (m.atom.c == '$')                                    // $ end of string \0 EOS 
+            if (m.atom.c == '$')                                    // $ end of string \0 EOS
             {
                 // check char following current one
 
@@ -1957,7 +1879,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
             {
                 if (backtrackP != 0)
                     if (backtrackP->maxOcc == 0)                    // if should fail anyway..
-                        return 0;                                   // return no match 
+                        return 0;                                   // return no match
             }
 
             if (segmentP->parseFailed)                              // if no match
@@ -1991,7 +1913,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
             }
 
 
-            // HERE WE HAVE A SEGMENT MATCH. 
+            // HERE WE HAVE A SEGMENT MATCH.
             // If capture, save result (only last one). See also PIPE
 
 
@@ -2022,7 +1944,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
             segmentP->strCharAcquired = 0;                          // retrig flag char acquired
 
-            if (segmentP->segmNumOcc >= m.atom.minOcc)              // if got minocc, enough occurrences for segment match, no backtrack 
+            if (segmentP->segmNumOcc >= m.atom.minOcc)              // if got minocc, enough occurrences for segment match, no backtrack
             {
                 segmentP->strP = segmentP->strParseP;               // update base str: parsed chars are definitive
                 segmentP->isEnoughOcc = 1;
@@ -2101,7 +2023,7 @@ void ClearDescriptors()
 
 
 // Init regex machine
-// MUST be called once at startup if CONST_CHARSET not used
+// MUST be called once at startup
 
 void MxRegex_init()
 {
@@ -2139,8 +2061,8 @@ void MxRegex_init()
 
 
 
-// Regex 
-// 
+// Regex
+//
 // parm
 //  regexP      ptr to regex pattern string (\0 terminated)
 //  strP        ptr to input string (\0 terminated)
@@ -2175,9 +2097,9 @@ UInt8 MxRegex(const char* regexP, const char* strP, const UInt16 mode)
         m.altSegmChanged = 0;                               // clear alternate segments changed flag
         m.iterateCnt = 0;                                   // init watchdog
 
-        // invoke first regex 
+        // invoke first regex
 
-        if (MxRegex_(0))                                    // if success, set caps[0] to matched string                               
+        if (MxRegex_(0))                                    // if success, set caps[0] to matched string
         {
             cP = &m.caps[0];
             cP->strP = m.segment[0].strP;
@@ -2211,7 +2133,7 @@ UInt8 MxRegex(const char* regexP, const char* strP, const UInt16 mode)
     m.retRegexErrOfs = m.segment[0].regexParseP - m.segment[0].regexP;    // on fail set error offset returned from Regex_
     m.capsNum = 0;                                          // reset capsnum
 
-    return 0;                                               // FAIL 
+    return 0;                                               // FAIL
 
 }
 
@@ -2242,10 +2164,10 @@ UInt8 MxRegex_getCaps(const UInt16 capsNum, char** retStr, UInt16* retLen)
 
 
 
-// get regex public vars 
+// get regex public vars
 // usually for debug only
 // ret:
-//  mP:     ptr to MXREGEX_M m  
+//  mP:     ptr to MXREGEX_M m
 // useful elements
 //  mP->m.retSts        if regex fail, get reason (REGEXSTS_OK: simply no match)
 //  mp->m.retRegexOfs   if not REGEXSTS_OK, error position in regex
@@ -2280,23 +2202,24 @@ int main()
 
     MxRegex_init();
 
-    b = MxRegex("0x(\\h+)", "test 0x1234 hex", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (4,7)
+    // TEST
+    b = MxRegex("^SPK((?:\\s*[+-][VAP])+)$", "spk -v+a", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (4,7)
     //b = MxRegex("^123$|^456", "asd\n123\raaa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (4,7)
     //b = MxRegex("^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6})$", "address.ext@gmail.com", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,21)
     //b = MxRegex("^[\\w-.]+(\\.\\w{2,3})$", "apn.vodafone.it", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,15)(12,15)
     //b = MxRegex("(a.*z|b.*y)*.*", "azbazbyc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  // (0,8) [ (0,5) ]
     //b = MxRegex( "a(b)|c(d)|a(e)f", "aef",REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);     // (0,3)(?,?)(?,?)(1,2)
-    //b = MxRegex("(a|b)*c", "abc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);   // (0,3)(?,?)(?,?)(1,2) 
-    //b = MxRegex("(a|b)*c|(a|ab)*c", "xc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);       // (1,2)  
+    //b = MxRegex("(a|b)*c", "abc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);   // (0,3)(?,?)(?,?)(1,2)
+    //b = MxRegex("(a|b)*c|(a|ab)*c", "xc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);       // (1,2)
     //b = MxRegex("(.a|.b).*|.*(.a|.b)", "xa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);       // (0,2)(0,2)
     //b = MxRegex("a+b+c", "aabbabc", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);       // (4,7)
     //b = MxRegex("([abc])*bcd", "abcd", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (0,4)(0,1)
-    //b = MxRegex("(...|aa)*a", "aa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);         // (0,1) | (1,2) 
+    //b = MxRegex("(...|aa)*a", "aa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);         // (0,1) | (1,2)
     //b = MxRegex("(a*)(a|aa)", "aaaa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (0,4)(0,3)(3,4)
     //b = MxRegex("(a*)(b{0,1})(b{1,})b{3}", "aaabbbbbbb", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (0,10)(0,3)(3,4)(4,7)
     //b = MxRegex("((foo)|(bar))!bas", "foo!bar!bas", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (4,11)(4,7)(?,?)(4,7) ***
-    //b = MxRegex("^(([^!]+!)?([^!]+)|.+!([^!]+!)([^!]+))$", "foo!bar!bas", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (0,11)(0,11)(?,?)(?,?)(4,8)(8,11) 
-    //b = MxRegex("^([^!]+!)?([^!]+)$|^.+!([^!]+!)([^!]+)$", "foo!bar!bas", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (0,11)(?,?)(?,?)(4,8)(8,11)  
+    //b = MxRegex("^(([^!]+!)?([^!]+)|.+!([^!]+!)([^!]+))$", "foo!bar!bas", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (0,11)(0,11)(?,?)(?,?)(4,8)(8,11)
+    //b = MxRegex("^([^!]+!)?([^!]+)$|^.+!([^!]+!)([^!]+)$", "foo!bar!bas", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (0,11)(?,?)(?,?)(4,8)(8,11)
     //b = MxRegex("(.?)*", "x", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (0,1)(1,1)
     //b = MxRegex("(aba|ab|a)(aba|ab|a)(aba|ab|a)", "ababa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (0,5)(0,2)(2,4)(4,5)
     //b = MxRegex(".*(b)", "ab", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);      // (0,2)(1,2)
@@ -2304,7 +2227,7 @@ int main()
     //b = MxRegex("^(http:\\/\\/www\\.|https:\\/\\/www\\.|http:\\/\\/|https:\\/\\/)?[a-z0-9]+([\\-\\.]{1}[a-z0-9]+)*\\.[a-z]{2,5}(:[0-9]{1,5})?(\\/.*)?$", "https://www.google.com:80", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,25)(0,12)(22,25)
     //b = MxRegex("(wee|week)(knights|night)(s*)", "weeknights", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0-10)(0,3)(3,10)(10,10)
     //b = MxRegex("(weeka|wee)(night|knights)", "weeknights", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  // (0-10)(0,3)(3,10)
-    //b = MxRegex("^\\s*(GET|POST)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)", " \tGET /index.html HTTP/1.0\r\n\r\n", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  
+    //b = MxRegex("^\\s*(GET|POST)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)", " \tGET /index.html HTTP/1.0\r\n\r\n", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);
     //b = MxRegex("[.]","a", REGEXMODE_SINGLELINE);  // fail
 
     snprintf(buf, sizeof(buf), "\r\nResponse: %s\r\nstatus code: %d \r\ncapsNum: %d\r\n\r", b ? "OK" : "FAIL", m.retSts, m.capsNum);
@@ -2327,3 +2250,4 @@ int main()
 }
 
 #endif
+
