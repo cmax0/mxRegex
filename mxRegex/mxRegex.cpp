@@ -70,7 +70,7 @@ const char* const C_WHITESPACE_CHARSET_STR = " \t\r\n\v\f";
 #endif
 
 const char* const C_ANCHOR_NO_ESC_CHARSET = "bB";                           // anchor after escape (i.e. no $ ^)
-const char* const C_ANCHOR_META_NO_ESC_CHARSET = "wWdDsSh";                  // metaclass after escape (i.e. no .)
+const char* const C_ANCHOR_META_NO_ESC_CHARSET = "wWdDsSh";                 // metaclass after escape (i.e. no .)
 
 
 // CODE
@@ -184,17 +184,19 @@ UInt8 CharInStr(const char c, const char* strP)
 //
 // We keep track of last MAX_BACKTRACK quantifiers of interest, wehere minOcc != maxOcc
 // bactrack position refers to 1st char after atom, e.g. regex"[ab]*cd", atom "[ab]*", position is &"c"
+// iteraition is needed for segment quantifier e.g. (\d+)+
 
 
 // add a backtrack element
 // if new element, set counter to max range: will be updated by parser, otherwise keep current counter.
 // note: backtrack won't have duplicated regexParseP
 // parm
-//  regexP  position of backtrack
+//  regexP      position of backtrack
+//  iteration   segment iteration 
 // ret
 //  1 ok, 0 fail ovf
 
-UInt8 BacktrackAdd(const char* regexParseP)
+UInt8 BacktrackAdd(const char* regexParseP, const UInt16 iteration)
 {
     BACKTRACK* bP;
     UInt16 t;
@@ -202,8 +204,8 @@ UInt8 BacktrackAdd(const char* regexParseP)
     for (t = 0; t < m.backtrackNum; t++)                    // check if exists, search for leftmost element
     {
         bP = &m.backtrack[t];
-        if (bP->regexParseP == regexParseP)                 // if position already present, already ok
-            return 1;
+        if (bP->regexParseP == regexParseP && bP->iteration == iteration)                
+            return 1;                                       // if position already present, already ok
     }
 
     // add new position
@@ -217,13 +219,14 @@ UInt8 BacktrackAdd(const char* regexParseP)
     bP = &m.backtrack[m.backtrackNum++];                     // set new position
 
 #if MXREGEX_DEBUG
-    snprintf(buf, sizeof(buf), "- BacktrackAdd num: %d, regexP: %s\r\n", m.backtrackNum, regexParseP);
+    snprintf(buf, sizeof(buf), "- BacktrackAdd num: %d, iteration: %d, regexP: %s\r\n", m.backtrackNum, iteration, regexParseP);
     OutputDebugStringA((LPCSTR)buf);
 #endif
 
     bP->regexParseP = regexParseP;
     bP->minOcc = 0;                                         // set init values, ok
     bP->maxOcc = BACKTRACK_MAXOCC;
+    bP->iteration = iteration;
     return 1;
 
 }
@@ -236,7 +239,7 @@ UInt8 BacktrackAdd(const char* regexParseP)
 // ret
 //  ptr to backtrack element, 0 if not found
 
-BACKTRACK* BacktrackGet(const char* regexParseP)
+BACKTRACK* BacktrackGet(const char* regexParseP, const UInt16 iteration)
 {
     BACKTRACK* bP;
     UInt16 t;
@@ -244,7 +247,7 @@ BACKTRACK* BacktrackGet(const char* regexParseP)
     for (t = 0; t < m.backtrackNum; t++)
     {
         bP = &m.backtrack[t];
-        if (bP->regexParseP == regexParseP)
+        if (bP->regexParseP == regexParseP && bP->iteration == iteration)
             return bP;
     }
 
@@ -275,14 +278,16 @@ UInt8 BacktrackIterate(const char* regexParseP)
     const char* cP;
     UInt16 t1;
     UInt16 t2;
+    UInt16 iteration;
 
     if (m.backtrackNum == 0)                                    // if no backtrack, nothing to do
         return 0;
 
-    // search for rightmost backtrack
+    // search for rightmost backtrack, higher iteration first
 
     cP = 0;
     t2 = MAX_BACKTRACK;                                         // deflt: not found
+    iteration = 0;
 
     for (t1 = 0; t1 < m.backtrackNum; t1++)
     {
@@ -292,11 +297,13 @@ UInt8 BacktrackIterate(const char* regexParseP)
             continue;
 
         if (bP->maxOcc != BACKTRACK_MAXOCC                      // if backtrack evaluated once
-            && bP->maxOcc > bP->minOcc                          // and needs new iteration, restart at right
-            && bP->regexParseP > cP)                            // and mostright right: save
+            && bP->maxOcc > bP->minOcc                          //  and needs new iteration, restart at right
+            && bP->regexParseP > cP                             //  and mostright right: save
+            && bP->iteration >= iteration)                      //  and at least same iteration or higher
         {
             t2 = t1;
             cP = bP->regexParseP;
+            iteration = bP->iteration;
         }
     }
 
@@ -316,6 +323,8 @@ UInt8 BacktrackIterate(const char* regexParseP)
     {
         bP = &m.backtrack[t1];
         if (bP->regexParseP > cP)
+            bP->maxOcc = BACKTRACK_MAXOCC;
+        else if(bP->regexParseP == cP && bP->iteration > iteration)
             bP->maxOcc = BACKTRACK_MAXOCC;
     }
 
@@ -731,7 +740,7 @@ UInt8 Atom_ParseQtf(const char* charP, UInt16* retLenP)
 //  REGEXSTS_OK: ok, atom descriptors stored in m.atom, m.atom.endP updated to ptr to next atom
 //  else: fatal error
 
-REGEX_STS GetRegexAtom(const char* charP, const UInt8 isCI)
+REGEX_STS GetRegexAtom(const char* charP, const UInt8 isCI, const UInt16 interation)
 {
     UInt16 t;
 
@@ -981,7 +990,7 @@ REGEX_STS GetRegexAtom(const char* charP, const UInt8 isCI)
     {
         charP += t;
         if (m.atom.minOcc < m.atom.maxOcc)                  // if it's a possible trackback position, add if necessary
-            BacktrackAdd(charP);
+            BacktrackAdd(charP, interation);
     }
     else                                                    // no valid quantifier, check for errors
     {
@@ -1312,7 +1321,7 @@ REGEX_STS SegmentInit(const UInt16 recurseNum, const char* strP, const char* reg
     segmentP->strCapP = strP;                   // ptr capture str
     segmentP->mode = mode;                      // segment mode
     segmentP->isCap = isCap;                    // is a capture
-
+    segmentP->anchorSOSfail = 0;  
     segmentP->isCI = (mode & REGEXMODE_CASE_INSENSITIVE) ? 1 : 0;       // set initial case insensitive flag
 
     return REGEXSTS_OK;
@@ -1456,7 +1465,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
             return 0;
         }
 
-        if ((m.retSts = GetRegexAtom(segmentP->regexParseP, segmentP->isCI)) != REGEXSTS_OK)    // get next atom
+        if ((m.retSts = GetRegexAtom(segmentP->regexParseP, segmentP->isCI, segmentP->segmNumOcc)) != REGEXSTS_OK)    // get next atom
             return 0;                                                           // if errors reported, fail
 
         segmentP->regexParseP = m.atom.endP;                        // move regex parser AFTER atom
@@ -1548,7 +1557,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
             if (m.atom.minOcc < m.atom.maxOcc)                       // if potential backtrack, get descriptor
             {
-                backtrackP = BacktrackGet(segmentP->regexParseP);    // GET BACKTRACK descriptor (should always be present)
+                backtrackP = BacktrackGet(segmentP->regexParseP, segmentP->segmNumOcc);    // GET BACKTRACK descriptor (should always be present)
 
                 if (backtrackP != 0)
                     if (backtrackP->maxOcc == 0)                     // if should fail anyway
@@ -1616,17 +1625,21 @@ UInt8 MxRegex_(UInt16 recurseNum)
                 if (m.retSts != REGEXSTS_OK)                        // check for fatal error condition
                     return 0;
 
+                if (segmentP->anchorSOSfail)                        // if anchor ^ failed: no need to check further
+                    return 0;
+
+
                 //
                 // HERE WE HAVE A REGEX NO MATCH CONDITION ON CURRENT SEGMENT
                 //
 
-                if (!segmentP->isEnoughOcc)                     // if not enough occurrences collected check for backtrack and altSegm
+                if (!segmentP->isEnoughOcc)                         // if not enough occurrences collected check for backtrack and altSegm
                 {
                     if (BacktrackIterate(segmentP->regexP))
                         goto BR_RETRY;
                 }
 
-                if (recurseNum > 0)                             // if nested, remove alt segm descriptor for this segment and return no match
+                if (recurseNum > 0)                                 // if nested, remove alt segm descriptor for this segment and return no match
                 {
                     return 0;
                 }
@@ -1635,7 +1648,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
                 // here is the base segment (i.e. recurseNum == 0)
                 //
 
-                if (*segmentP->strP == '\0')                    // if str EOS reached, REGEX NO MATCH
+                if (*segmentP->strP == '\0')                        // if str EOS reached, REGEX NO MATCH
                 {
 #if MXREGEX_DEBUG
                     snprintf(buf, sizeof(buf), "- str EOS REACHED %d\r\n", recurseNum);
@@ -1644,7 +1657,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
                     return 0;
                 }
 
-                if (m.altSegmChanged)                           // if still alternate segments pending
+                if (m.altSegmChanged)                               // if still alternate segments pending
                 {
 #if MXREGEX_DEBUG
                     snprintf(buf, sizeof(buf), "- lev = %d altSegmChanged true, clear altSegmChanged, restart\r\n", recurseNum);
@@ -1738,7 +1751,7 @@ UInt8 MxRegex_(UInt16 recurseNum)
 
             if (m.atom.minOcc < segmentP->atomNumOcc)               // if there could have been less occurrencies
             {
-                if ((backtrackP = BacktrackGet(segmentP->regexParseP)))     // if backtrack present (should always be)
+                if ((backtrackP = BacktrackGet(segmentP->regexParseP, segmentP->segmNumOcc)))     // if backtrack present (should always be)
                 {
                     backtrackP->maxOcc = segmentP->atomNumOcc;      // update max occurrencies for next round (if needed)
 #if MXREGEX_DEBUG
@@ -1760,9 +1773,18 @@ UInt8 MxRegex_(UInt16 recurseNum)
                     break;
 
                 if (m.isMultiLine)                                  // if multiline: ok also if preceding char was \r or \n
+                {
                     if (segmentP->strParseP[-1] == '\r' || segmentP->strParseP[-1] == '\n')
                         break;
-
+                }
+                else
+                {
+                    segmentP->anchorSOSfail = 1;                    // don't check further on segment
+                }
+#if MXREGEX_DEBUG
+                snprintf(buf, sizeof(buf), "- anchor ^ failed\r\n");
+                OutputDebugStringA((LPCSTR)buf);
+#endif
                 goto BR_SEGMENT_MATCH_FAIL;                         // fail
             }
 
@@ -1775,12 +1797,24 @@ UInt8 MxRegex_(UInt16 recurseNum)
                     if (*segmentP->strParseP != '\0'
                         && *segmentP->strParseP != '\r'
                         && *segmentP->strParseP != '\n')
-                        goto BR_SEGMENT_MATCH_FAIL;
+                    {
+#if MXREGEX_DEBUG
+                        snprintf(buf, sizeof(buf), "- anchor $ multiline failed\r\n");
+                        OutputDebugStringA((LPCSTR)buf);
+#endif
+                        goto BR_SEGMENT_MATCH_FAIL;                         // fail
+                    }
                 }
                 else
                 {
                     if (*segmentP->strParseP != '\0')               // singleline \0
-                        goto BR_SEGMENT_MATCH_FAIL;
+                    {
+#if MXREGEX_DEBUG
+                        snprintf(buf, sizeof(buf), "- anchor $ singleline failed\r\n");
+                        OutputDebugStringA((LPCSTR)buf);
+#endif
+                        goto BR_SEGMENT_MATCH_FAIL;                         // fail
+                    }
                 }
                 break;
             }
@@ -1871,9 +1905,9 @@ UInt8 MxRegex_(UInt16 recurseNum)
             }
 
             if (m.atom.minOcc < m.atom.maxOcc)                      // if it's a possible trackback position, add if necessary
-                BacktrackAdd(segmentP->regexParseP);
+                BacktrackAdd(segmentP->regexParseP, 0);
 
-            backtrackP = BacktrackGet(segmentP->regexParseP);       // GET BACKTRACK descriptor (should always be present)
+            backtrackP = BacktrackGet(segmentP->regexParseP, 0);    // GET BACKTRACK descriptor (should always be present)
 
             if (m.atom.minOcc < m.atom.maxOcc)                      // if potential backtrack, get descriptor
             {
@@ -1913,11 +1947,12 @@ UInt8 MxRegex_(UInt16 recurseNum)
             }
 
 
+
             // HERE WE HAVE A SEGMENT MATCH.
             // If capture, save result (only last one). See also PIPE
 
 
-            if (!CapsSave(segmentP))                                // fail to save: fatal
+            if (!CapsSave(segmentP))                                // fail to save: fatal REGEXSTS_CAPS_OVS
                 return 0;
 
             segmentP->segmNumOcc++;                                 // INCREMENT NR OCCURRENCIES
@@ -2203,7 +2238,9 @@ int main()
     MxRegex_init();
 
     // TEST
-    b = MxRegex("^SPK((?:\\s*[+-][VAP])+)$", "spk -v+a", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (4,7)
+    //b = MxRegex("^ip\\s*(\\d+(?:\\.\\d+){3})$", "ip 1.12.123.123", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,15)(3,15)
+    //b = MxRegex("^ip ((?:\\d+(?:\\.\\d+){3})|(?:[a-z]+(?:\\.[a-z]+){3}))$", "aa\nip a.bb.ccc.d\nbb", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_MULTILINE); // (3,16)(6,16)
+    //b = MxRegex("^SPK\\s*((?:\\s*[+-][VAP])+)$", "spk -v+a-p", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (0,10)(4,10)
     //b = MxRegex("^123$|^456", "asd\n123\raaa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (4,7)
     //b = MxRegex("^([a-zA-Z0-9._%-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6})$", "address.ext@gmail.com", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,21)
     //b = MxRegex("^[\\w-.]+(\\.\\w{2,3})$", "apn.vodafone.it", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,15)(12,15)
@@ -2227,7 +2264,8 @@ int main()
     //b = MxRegex("^(http:\\/\\/www\\.|https:\\/\\/www\\.|http:\\/\\/|https:\\/\\/)?[a-z0-9]+([\\-\\.]{1}[a-z0-9]+)*\\.[a-z]{2,5}(:[0-9]{1,5})?(\\/.*)?$", "https://www.google.com:80", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,25)(0,12)(22,25)
     //b = MxRegex("(wee|week)(knights|night)(s*)", "weeknights", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0-10)(0,3)(3,10)(10,10)
     //b = MxRegex("(weeka|wee)(night|knights)", "weeknights", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);  // (0-10)(0,3)(3,10)
-    //b = MxRegex("^\\s*(GET|POST)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)", " \tGET /index.html HTTP/1.0\r\n\r\n", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);
+    //b = MxRegex("^\\s*(GET|POST)\\s+(\\S+)\\s+HTTP/(\\d)\\.(\\d)", " GET /index.html HTTP/1.0\r\n\r\n", 
+    //                                  REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE);                 //(0,25)(1,4)(5,16)(22,23)(24,25)
     //b = MxRegex("[.]","a", REGEXMODE_SINGLELINE);  // fail
 
     snprintf(buf, sizeof(buf), "\r\nResponse: %s\r\nstatus code: %d \r\ncapsNum: %d\r\n\r", b ? "OK" : "FAIL", m.retSts, m.capsNum);

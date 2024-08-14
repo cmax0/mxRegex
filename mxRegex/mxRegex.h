@@ -169,6 +169,7 @@ extern "C" {
         UInt8 parseFailed : 1;                      // flag no match condition (not considering quantifier)
         UInt8 isEnoughOcc : 1;                      // flag got enough occurrences for segment match, no need for backtrack
         UInt8 strCharAcquired : 1;                  // flat at least 1 char acquired from str. Avoid lookup on empty regex like "([ab]*)*a"
+        UInt8 anchorSOSfail : 1;                    // flag anchor start of string ^ failed in NOT multiline (optimize)
 
     } SEGMENT;
 
@@ -207,6 +208,7 @@ extern "C" {
         const char* regexParseP;                    // backtrack position (ptr to 1st char after atom)
         UInt16 minOcc;                              // current counters
         UInt16 maxOcc;
+        UInt16 iteration;                           // iterations within segment e.g. (\\d+)+
 
     } BACKTRACK;
 

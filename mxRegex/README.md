@@ -83,6 +83,11 @@ You should have received a copy of the GNU General Public License and GNU Lesser
 &nbsp;
 #### Changelog
 
+##### 1.05
+FIX
+- backtrack issue with parenthesis quantifier
+- missing optimization with anchor ^ in mode SINGLELINE
+
 ##### 1.04
 FIX
 - case insensitive not handled correctly in carset [...]
