@@ -2238,7 +2238,7 @@ int main()
     MxRegex_init();
 
     // TEST
-    //b = MxRegex("^ip\\s*(\\d+(?:\\.\\d+){3})$", "ip 1.12.123.123", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,15)(3,15)
+    b = MxRegex("^ip\\s*(\\d+(?:\\.\\d+){3})$", "ip 1.12.123.123", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE); // (0,15)(3,15)
     //b = MxRegex("^ip ((?:\\d+(?:\\.\\d+){3})|(?:[a-z]+(?:\\.[a-z]+){3}))$", "aa\nip a.bb.ccc.d\nbb", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_MULTILINE); // (3,16)(6,16)
     //b = MxRegex("^SPK\\s*((?:\\s*[+-][VAP])+)$", "spk -v+a-p", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (0,10)(4,10)
     //b = MxRegex("^123$|^456", "asd\n123\raaa", REGEXMODE_CASE_INSENSITIVE | REGEXMODE_SINGLELINE | REGEXMODE_MULTILINE); // (4,7)
